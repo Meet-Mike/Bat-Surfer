@@ -19,8 +19,14 @@
           </button>
         </div>
       </div>
-      <div class="message">
-        Press <span class="key">{{ textCompute.key }}</span> {{ textCompute.text }}
+      <div class="action-container">
+        <button class="start-btn" @click="triggerAction">
+          {{ gameStatus === 'end' ? 'RESTART GAME' : 'START GAME' }}
+        </button>
+        <div class="controls-hint">
+          <p>Controls: <b>WASD</b> or <b>Arrow Keys</b> to Move/Jump/Slide</p>
+          <p>Press <b>Enter</b>, <b>Space</b>, or <b>{{ textCompute.key }}</b> to {{ textCompute.text }}</p>
+        </div>
       </div>
     </div>
   </div>
@@ -36,7 +42,15 @@ const props = defineProps({
   modelValue: { type: String, default: 'classic' },
 });
 
-const emit = defineEmits(['update:modelValue', 'select-character']);
+const emit = defineEmits(['update:modelValue', 'select-character', 'start-game', 'restart-game']);
+
+function triggerAction() {
+  if (props.gameStatus === 'end') {
+    emit('restart-game');
+  } else {
+    emit('start-game');
+  }
+}
 
 const characters = CHARACTERS;
 const selectedCharacter = ref(props.modelValue);
@@ -142,17 +156,42 @@ const textCompute = computed(() => {
   display: inline-block;
 }
 
-.message {
-  font-size: 24px;
-  color: white;
-  text-align: center;
+.action-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  width: 100%;
 }
 
-.key {
-  background-color: #3498db;
+.start-btn {
+  background: linear-gradient(135deg, #2ecc71, #27ae60);
   color: white;
-  padding: 5px 12px;
-  border-radius: 6px;
+  font-size: 20px;
   font-weight: bold;
+  padding: 14px 40px;
+  border: none;
+  border-radius: 30px;
+  cursor: pointer;
+  letter-spacing: 1.5px;
+  box-shadow: 0 6px 20px rgba(46, 204, 113, 0.4);
+  transition: all 0.25s ease;
+}
+
+.start-btn:hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 10px 25px rgba(46, 204, 113, 0.6);
+  background: linear-gradient(135deg, #27ae60, #2ecc71);
+}
+
+.controls-hint {
+  color: #bdc3c7;
+  font-size: 14px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.controls-hint b {
+  color: #f39c12;
 }
 </style>

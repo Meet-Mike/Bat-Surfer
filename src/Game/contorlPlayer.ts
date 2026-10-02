@@ -7,6 +7,7 @@ import {EventEmitter} from 'events';
 import Player from './player';
 // @ts-ignore
 import showToast from '../components/Toast/index.js';
+import { soundManager } from './audio';
 enum Side {
     FRONT,
     BACK,
@@ -143,107 +144,204 @@ export class ControlPlayer extends EventEmitter {
         this.raycasterFrontDown.far = 3;
     }
     private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
+    private touchStartHandler: ((e: TouchEvent) => void) | null = null;
+    private touchEndHandler: ((e: TouchEvent) => void) | null = null;
+    private touchStartX: number = 0;
+    private touchStartY: number = 0;
+
+    start() {
+        if (!this.gameStart) {
+            this.gameStart = true;
+            this.gameStatus = GAME_STATUS.START;
+            this.game.emit('gameStatus', this.gameStatus);
+        }
+    }
+
+    restart() {
+        this.gameStatus = GAME_STATUS.READY;
+        this.game.emit('gameStatus', this.gameStatus);
+        this.smallMistake = 0;
+        this.score = 0;
+        this.coin = 0;
+        while (this.scene.children.length > 0) {
+            this.scene.remove(this.scene.children[0]);
+        }
+        this.environement.startGame();
+        this.player.createPlayer(false);
+    }
+
+    jump() {
+        if (!this.gameStart || this.status === playerStatus.DIE) return;
+        if (this.status !== playerStatus.JUMP && this.status !== playerStatus.FALL && this.downCollide) {
+            this.key = 'w';
+            this.downCollide = false;
+            this.isJumping = true;
+            soundManager.playJump();
+            setTimeout(() => {
+                this.isJumping = false;
+            }, 50);
+            this.fallingSpeed += this.jumpHight * 0.1;
+        }
+    }
+
+    slide() {
+        if (!this.gameStart || this.status === playerStatus.DIE) return;
+        if (!this.roll && this.status !== playerStatus.ROLL) {
+            this.roll = true;
+            soundManager.playSlide();
+            setTimeout(() => {
+                this.roll = false;
+            }, 620);
+            this.key = 's';
+            this.fallingSpeed = -5 * 0.1;
+        }
+    }
+
+    moveLeft() {
+        if (!this.gameStart || this.status === playerStatus.DIE) return;
+        if (this.way === 1) {
+            this.runlookback = true;
+            this.emit('collision');
+                    soundManager.playCrash();
+            showToast('Hit obstacle! Watch out!');
+            setTimeout(() => {
+                this.runlookback = false;
+            }, 1040);
+            this.smallMistake += 1;
+            return;
+        }
+        this.way -= 1;
+        this.originLocation = this.model.position.clone();
+        this.lastPosition = this.model.position.clone().x;
+        this.targetPosition -= roadWidth / 3;
+    }
+
+    moveRight() {
+        if (!this.gameStart || this.status === playerStatus.DIE) return;
+        if (this.way === 3) {
+            this.runlookback = true;
+            this.emit('collision');
+                    soundManager.playCrash();
+            showToast('Hit obstacle! Watch out!');
+            setTimeout(() => {
+                this.runlookback = false;
+            }, 1040);
+            this.smallMistake += 1;
+            return;
+        }
+        this.originLocation = this.model.position.clone();
+        this.lastPosition = this.model.position.clone().x;
+        this.targetPosition += roadWidth / 3;
+        this.way += 1;
+    }
 
     // @ts-ignore
     addAnimationListener() {
         this.keydownHandler = (e: KeyboardEvent) => {
-            const key = e.key;
-            // 开始游戏
-            if (key === 'p') {
-                if (!this.gameStart) {
-                    this.gameStart = true;
-                    this.gameStatus = GAME_STATUS.START;
-                    this.key === 'p';
-                    this.game.emit('gameStatus', this.gameStatus);
-                }
-            }
-            else if (
-                key === 'w'
-                && this.status !== playerStatus.JUMP
-                && this.status !== playerStatus.FALL
-                && this.downCollide
-            ) {
-                if (!this.gameStart || this.status === playerStatus.DIE) {
-                    return;
-                }
+            const key = e.key.toLowerCase();
+            const code = e.code;
 
-                this.key = 'w';
-                this.downCollide = false;
-                this.isJumping = true;
-                setTimeout(() => {
-                    this.isJumping = false;
-                }, 50);
-                this.fallingSpeed += this.jumpHight * 0.1;
+            // Start or Restart
+            if (key === 'p' || key === 'enter' || code === 'Space') {
+                if (!this.gameStart) {
+                    this.start();
+                    e.preventDefault();
+                    return;
+                } else if (this.gameStatus === GAME_STATUS.END && key === 'enter') {
+                    this.restart();
+                    e.preventDefault();
+                    return;
+                }
             }
-            else if (key === 's' && !this.roll && this.status !== playerStatus.ROLL) {
-                if (!this.gameStart || this.status === playerStatus.DIE) {
-                    return;
-                }
-                this.roll = true;
-                setTimeout(() => {
-                    this.roll = false;
-                }, 620);
-                this.key = 's';
-                this.fallingSpeed = -5 * 0.1;
+
+            if (key === 'r') {
+                this.restart();
+                e.preventDefault();
+                return;
             }
-            else if (key === 'a') {
-                if (!this.gameStart || this.status === playerStatus.DIE) {
-                    return;
+
+            // Up / Jump
+            if (key === 'w' || key === 'arrowup' || code === 'Space') {
+                if (this.gameStart && this.gameStatus !== GAME_STATUS.END) {
+                    this.jump();
+                    e.preventDefault();
                 }
-                // 位于最左边的道路
-                if (this.way === 1) {
-                    this.runlookback = true;
-                    this.emit('collision');
-                    showToast('Hit obstacle! Watch out!');
-                    setTimeout(() => {
-                        this.runlookback = false;
-                    }, 1040);
-                    this.smallMistake += 1;
-                    return;
-                }
-                this.way -= 1;
-                this.originLocation = this.model.position.clone();
-                this.lastPosition = this.model.position.clone().x;
-                this.targetPosition -= roadWidth / 3;
             }
-            else if (key === 'd') {
-                if (!this.gameStart || this.status === playerStatus.DIE) {
-                    return;
+            // Down / Slide
+            else if (key === 's' || key === 'arrowdown') {
+                if (this.gameStart && this.gameStatus !== GAME_STATUS.END) {
+                    this.slide();
+                    e.preventDefault();
                 }
-                if (this.way === 3) {
-                    this.runlookback = true;
-                    this.emit('collision');
-                    showToast('Hit obstacle! Watch out!');
-                    setTimeout(() => {
-                        this.runlookback = false;
-                    }, 1040);
-                    this.smallMistake += 1;
-                    return;
-                }
-                this.originLocation = this.model.position.clone();
-                this.lastPosition = this.model.position.clone().x;
-                this.targetPosition += roadWidth / 3;
-                this.way += 1;
             }
-            else if (key === 'r') {
-                this.gameStatus = GAME_STATUS.READY;
-                this.game.emit('gameStatus', this.gameStatus);
-                this.smallMistake = 0;
-                while (this.scene.children.length > 0) {
-                    this.scene.remove(this.scene.children[0]);
+            // Left
+            else if (key === 'a' || key === 'arrowleft') {
+                if (this.gameStart && this.gameStatus !== GAME_STATUS.END) {
+                    this.moveLeft();
+                    e.preventDefault();
                 }
-                // disposeNode(this.scene);
-                this.environement.startGame();
-                this.player.createPlayer(false);
+            }
+            // Right
+            else if (key === 'd' || key === 'arrowright') {
+                if (this.gameStart && this.gameStatus !== GAME_STATUS.END) {
+                    this.moveRight();
+                    e.preventDefault();
+                }
             }
         };
+
+        this.touchStartHandler = (e: TouchEvent) => {
+            if (e.touches.length > 0) {
+                this.touchStartX = e.touches[0].clientX;
+                this.touchStartY = e.touches[0].clientY;
+            }
+        };
+
+        this.touchEndHandler = (e: TouchEvent) => {
+            if (!this.touchStartX || !this.touchStartY || e.changedTouches.length === 0) return;
+            const diffX = e.changedTouches[0].clientX - this.touchStartX;
+            const diffY = e.changedTouches[0].clientY - this.touchStartY;
+            const threshold = 30;
+
+            if (!this.gameStart) {
+                this.start();
+                return;
+            }
+
+            if (Math.abs(diffX) > Math.abs(diffY)) {
+                if (diffX > threshold) {
+                    this.moveRight();
+                } else if (diffX < -threshold) {
+                    this.moveLeft();
+                }
+            } else {
+                if (diffY < -threshold) {
+                    this.jump();
+                } else if (diffY > threshold) {
+                    this.slide();
+                }
+            }
+            this.touchStartX = 0;
+            this.touchStartY = 0;
+        };
+
         window.addEventListener('keydown', this.keydownHandler);
+        window.addEventListener('touchstart', this.touchStartHandler);
+        window.addEventListener('touchend', this.touchEndHandler);
     }
 
     dispose() {
         if (this.keydownHandler) {
             window.removeEventListener('keydown', this.keydownHandler);
             this.keydownHandler = null;
+        }
+        if (this.touchStartHandler) {
+            window.removeEventListener('touchstart', this.touchStartHandler);
+            this.touchStartHandler = null;
+        }
+        if (this.touchEndHandler) {
+            window.removeEventListener('touchend', this.touchEndHandler);
+            this.touchEndHandler = null;
         }
     }
 // 左右移动控制
@@ -343,7 +441,7 @@ handleLeftRightMove() {
             return;
         }
         // update collide
-        const origin = new THREE.Vector3(x, position.y + 3, z);
+        const origin = new THREE.Vector3(x, position.y + 1.5, z);
         const originDown = new THREE.Vector3(x, position.y + 4.6, z - 0.5);
         switch (side) {
             case Side.DOWN: {
@@ -363,21 +461,23 @@ handleLeftRightMove() {
             case Side.FRONT: {
                 const r1 = this.raycasterFront.intersectObjects([intersectObstacal, intersectCoin])[0];
                 const r1Name = r1?.object.name;
-                if (r1Name === 'coin') {
+                if (r1Name === 'coin' && r1.object.visible) {
                     r1.object.visible = false;
                     this.coin += 1;
+                    soundManager.playCoin();
                 }
                 const c1 = r1Name && r1Name !== 'coin';
                 this.raycasterFront.far = 1.5;
                 const r2 = this.raycasterFront.intersectObjects([intersectObstacal, intersectCoin])[0];
                 const r2Name = r2?.object.name;
-                if (r2Name === 'coin') {
+                if (r2Name === 'coin' && r2.object.visible) {
                     r2.object.visible = false;
                     this.coin += 1;
+                    soundManager.playCoin();
                 }
                 // 撞击点信息
                 const c2 = r2Name && r2Name !== 'coin';
-                this.frontCollideInfo = r1 || r2;
+                this.frontCollideInfo = (r1Name && r1Name !== 'coin' ? r1 : null) || (r2Name && r2Name !== 'coin' ? r2 : null);
                 c1 || c2 ? (this.frontCollide = true) : (this.frontCollide = false);
                 break;
             }
@@ -395,7 +495,7 @@ handleLeftRightMove() {
             case Side.LEFT: {
                 const r1 = this.raycasterLeft.intersectObjects([intersectObstacal, intersectCoin])[0];
                 const r1Name = r1?.object.name;
-                if (r1Name === 'coin') {
+                if (r1Name === 'coin' && r1.object.visible) {
                     r1.object.visible = false;
                     this.coin += 1;
                 }
@@ -403,11 +503,10 @@ handleLeftRightMove() {
                 this.raycasterLeft.ray.origin = origin;
                 const r2 = this.raycasterLeft.intersectObjects([intersectObstacal, intersectCoin])[0];
                 const r2Name = r2?.object.name;
-                if (r2Name === 'coin') {
+                if (r2Name === 'coin' && r2.object.visible) {
                     r2.object.visible = false;
                     this.coin += 1;
                 }
-                // 撞击点信息
                 const c2 = r2Name && r2Name !== 'coin';
                 c1 || c2 ? (this.leftCollide = true) : (this.leftCollide = false);
                 break;
@@ -415,7 +514,7 @@ handleLeftRightMove() {
             case Side.RIGHT: {
                 const r1 = this.raycasterRight.intersectObjects([intersectObstacal, intersectCoin])[0];
                 const r1Name = r1?.object.name;
-                if (r1Name === 'coin') {
+                if (r1Name === 'coin' && r1.object.visible) {
                     r1.object.visible = false;
                     this.coin += 1;
                 }
@@ -423,11 +522,10 @@ handleLeftRightMove() {
                 this.raycasterRight.ray.origin = origin;
                 const r2 = this.raycasterRight.intersectObjects([intersectObstacal, intersectCoin])[0];
                 const r2Name = r2?.object.name;
-                if (r2Name === 'coin') {
+                if (r2Name === 'coin' && r2.object.visible) {
                     r2.object.visible = false;
                     this.coin += 1;
                 }
-                // 撞击点信息
                 const c2 = r2Name && r2Name !== 'coin';
                 c1 || c2 ? (this.rightCollide = true) : (this.rightCollide = false);
                 break;
@@ -508,7 +606,8 @@ handleLeftRightMove() {
             if (locateObstacal < 0.75) {
                 this.status = playerStatus.DIE;
                 this.gameStatus = GAME_STATUS.END;
-                showToast('Game Over! Press R to restart!');
+                soundManager.playGameOver();
+                showToast('Game Over! Press R or Enter to restart!');
                 this.game.emit('gameStatus', this.gameStatus);
             }
             else {
@@ -516,6 +615,7 @@ handleLeftRightMove() {
                 this.model.position.y += obstacal * (1 - locateObstacal);
                 this.smallMistake += 1;
                 this.emit('collision');
+                soundManager.playCrash();
                 showToast('Hit obstacle! Watch out!');
                 this.firstFrontCollide.isCollide = false;
                 setTimeout(() => {
@@ -553,6 +653,7 @@ handleLeftRightMove() {
         if (mistake >= 2 && this.gameStatus !== GAME_STATUS.END) {
             this.status = playerStatus.DIE;
             this.gameStatus = GAME_STATUS.END;
+            soundManager.playGameOver();
             this.game.emit('gameStatus', this.gameStatus);
         }
     }

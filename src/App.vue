@@ -15,6 +15,8 @@
       :game-status="gameStatus"
       v-model="selectedCharacter"
       @select-character="handleSelectCharacter"
+      @start-game="handleStartGame"
+      @restart-game="handleRestartGame"
     />
     <ScorePanel :score="score" :coin="coin" :mistake="mistake" />
     <div class="experience">
@@ -47,6 +49,18 @@ let gameInstance: Game | null = null;
 const handleSelectCharacter = (charId: string) => {
   if (gameInstance?.player) {
     gameInstance.player.setCharacter(charId);
+  }
+};
+
+const handleStartGame = () => {
+  if (gameInstance?.player?.controlPlayer) {
+    gameInstance.player.controlPlayer.start();
+  }
+};
+
+const handleRestartGame = () => {
+  if (gameInstance?.player?.controlPlayer) {
+    gameInstance.player.controlPlayer.restart();
   }
 };
 const exp_canvas = ref<HTMLElement>();
