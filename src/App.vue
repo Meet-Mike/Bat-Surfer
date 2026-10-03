@@ -1,15 +1,33 @@
 <template>
-  <div>
-    <div v-if="!isReady" class="loading">
-      <div class="loading-anima aaa">
-        <div></div>
-        <div></div>
-        <div></div>
+  <div class="app-root">
+    <!-- Polished Loading / Splash Screen -->
+    <transition name="fade">
+      <div v-if="!isReady" class="splash-screen">
+        <div class="splash-content">
+          <div class="logo-container">
+            <span class="logo-subway">SUBWAY</span>
+            <span class="logo-surfers">SURFERS</span>
+            <div class="logo-tagline">3D METRO RUNNER</div>
+          </div>
+
+          <div class="progress-section">
+            <div class="progress-bar-container">
+              <div class="progress-bar-fill" :style="{ width: progressPercent + '%' }"></div>
+            </div>
+            <div class="progress-text">
+              <span>{{ progressText }}</span>
+              <span class="percent-label">{{ Math.round(progressPercent) }}%</span>
+            </div>
+          </div>
+
+          <div class="tips-box">
+            <span class="tip-badge">TIP</span>
+            <span class="tip-text">{{ currentTip }}</span>
+          </div>
+        </div>
       </div>
-      <div>Loading assets: {{ loadingData.url }}</div>
-      <div>Loaded {{ loadingData.itemsLoaded || 0 }}/{{ loadingData.itemsTotal || 0 }}</div>
-      <div v-if="loadingData.type === 'successLoad'">Loading complete, please wait...</div>
-    </div>
+    </transition>
+
     <GameGuide
       :show-mask="isReady && showGuide"
       :game-status="gameStatus"
@@ -30,21 +48,39 @@ import { onMounted, ref, computed, onUnmounted } from 'vue';
 import ScorePanel from './components/ScorePanel.vue';
 import GameGuide from './components/GameGuide.vue';
 import Game from './Game';
-// Whether models are loaded
+
 const isReady = ref(false);
-// Game score
 const score = ref(0);
-// Game coins
 const coin = ref(0);
-// Game mistake count
 const mistake = ref(0);
-// Game status
 const gameStatus = ref('ready');
-// Selected character ID
 const selectedCharacter = ref('classic');
 
-let loadingData: any = ref({});
+const loadingData = ref<{ itemsLoaded?: number; itemsTotal?: number; type?: string; url?: string }>({});
 let gameInstance: Game | null = null;
+
+const tips = [
+  'Use UP / Space / W to jump over hurdles & kerb stones!',
+  'Swipe or press Left/Right to change lanes on the run.',
+  'Press DOWN / S to slide under barriers.',
+  'Collect shiny gold coins to boost your score multiplier!',
+  'Pick your favorite runner character before jumping onto the tracks.'
+];
+const currentTip = ref(tips[0]);
+
+const progressPercent = computed(() => {
+  if (loadingData.value.type === 'successLoad' || isReady.value) return 100;
+  const loaded = loadingData.value.itemsLoaded || 0;
+  const total = loadingData.value.itemsTotal || 1;
+  return Math.min(Math.round((loaded / total) * 100), 99);
+});
+
+const progressText = computed(() => {
+  if (loadingData.value.type === 'successLoad') return 'Loading complete! Preparing track...';
+  if (!loadingData.value.url) return 'Initializing Metro Engine...';
+  const fileName = loadingData.value.url.split('/').pop() || loadingData.value.url;
+  return `Loading asset: ${fileName}`;
+});
 
 const handleSelectCharacter = (charId: string) => {
   if (gameInstance?.player) {
@@ -63,165 +99,218 @@ const handleRestartGame = () => {
     gameInstance.player.controlPlayer.restart();
   }
 };
+
 const exp_canvas = ref<HTMLElement>();
 const showGuide = computed(() => {
   return gameStatus.value !== 'start';
 });
 
+let tipInterval: any = null;
+
 onMounted(() => {
+  tipInterval = setInterval(() => {
+    const randomIndex = Math.floor(Math.random() * tips.length);
+    currentTip.value = tips[randomIndex];
+  }, 2500);
+
   const game = new Game(exp_canvas.value);
   gameInstance = game;
-  // Asset loading
+
   game.on('progress', (data: any) => {
     const { type } = data;
     if (type === 'successLoad') {
       loadingData.value.type = 'successLoad';
-      isReady.value = true;
-    }
-    else {
+      setTimeout(() => {
+        isReady.value = true;
+      }, 300);
+    } else {
       loadingData.value = data;
     }
   });
+
   game.on('gameStatus', (data: any) => {
-    console.log(data);
     gameStatus.value = data;
   });
+
   game.on('gameData', (data: any) => {
     score.value = data.score;
     coin.value = data.coin;
     mistake.value = data.mistake;
   });
 });
+
 onUnmounted(() => {
-  const game = new Game(exp_canvas.value);
-  game?.disposeGame();
+  if (tipInterval) clearInterval(tipInterval);
+  gameInstance?.disposeGame();
 });
 </script>
 
 <style scoped>
-.loading {
+.app-root {
+  font-family: 'Montserrat', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  user-select: none;
+}
+
+/* Splash / Loading Screen */
+.splash-screen {
   position: fixed;
-  height: 100vh;
+  top: 0;
+  left: 0;
   width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  background: radial-gradient(circle at center, #1b2838 0%, #0d121d 100%);
   display: flex;
   justify-content: center;
   align-items: center;
+  color: #fff;
+  overflow: hidden;
+}
+
+.splash-content {
+  width: 90%;
+  max-width: 480px;
+  display: flex;
   flex-direction: column;
-  z-index: 999;
-  background-color: #fff;
+  align-items: center;
+  text-align: center;
+  gap: 2rem;
+  padding: 2.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 28px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
-.loading-anima,
-.loading-anima>div {
-  position: relative;
-  box-sizing: border-box;
+.logo-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 0.9;
 }
 
-.aaa {
-  display: block;
-  font-size: 0;
-  color: white;
+.logo-subway {
+  font-size: 3.2rem;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: 2px;
+  background: linear-gradient(180deg, #ffe600 0%, #ff8800 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 4px 10px rgba(255, 136, 0, 0.4));
+  transform: skewX(-6deg);
 }
 
-.loading-anima.la-dark {
-  color: #333;
+.logo-surfers {
+  font-size: 2.5rem;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: 3px;
+  background: linear-gradient(180deg, #00f2fe 0%, #4facfe 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 4px 10px rgba(79, 172, 254, 0.4));
+  transform: skewX(-6deg);
+  margin-top: 4px;
 }
 
-.loading-anima>div {
-  display: inline-block;
-  float: none;
-  background-color: black;
-  border: 0 solid black;
+.logo-tagline {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
 }
 
-.loading-anima {
-  width: 54px;
-  height: 18px;
+.progress-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
 }
 
-.aaa>div {
-  width: 10px;
-  height: 10px;
-  margin: 4px;
-  border-radius: 100%;
-  animation: ball-pulse-sync .6s infinite ease-in-out;
+.progress-bar-container {
+  width: 100%;
+  height: 14px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
 }
 
-.loading-anima>div:nth-child(1) {
-  animation-delay: -.14s;
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00f2fe 0%, #00c6ff 50%, #ff007f 100%);
+  border-radius: 8px;
+  transition: width 0.25s ease-out;
+  box-shadow: 0 0 12px rgba(0, 242, 254, 0.6);
 }
 
-.loading-anima>div:nth-child(2) {
-  animation-delay: -.07s;
+.progress-text {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
 }
 
-.loading-anima>div:nth-child(3) {
-  animation-delay: 0s;
+.percent-label {
+  font-weight: 800;
+  color: #00f2fe;
 }
 
-.loading-anima.la-sm {
-  width: 26px;
-  height: 8px;
+.tips-box {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.75rem 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  width: 100%;
+  text-align: left;
 }
 
-.loading-anima.la-sm>div {
-  width: 4px;
-  height: 4px;
-  margin: 2px;
+.tip-badge {
+  background: #ff007f;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  letter-spacing: 1px;
 }
 
-.loading-anima.la-2x {
-  width: 108px;
-  height: 36px;
+.tip-text {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.3;
 }
 
-.loading-anima.la-2x>div {
-  width: 20px;
-  height: 20px;
-  margin: 8px;
+/* Fade Transition */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.4s ease;
 }
-
-.loading-anima.la-3x {
-  width: 162px;
-  height: 54px;
-}
-
-.loading-anima.la-3x>div {
-  width: 30px;
-  height: 30px;
-  margin: 12px;
-}
-
-@keyframes ball-pulse-sync {
-  33% {
-    transform: translateY(100%);
-  }
-
-  66% {
-    transform: translateY(-100%);
-  }
-
-  100% {
-    transform: translateY(0);
-  }
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 .experience {
   position: fixed;
   height: 100vh;
   width: 100vw;
+  top: 0;
+  left: 0;
 }
 
 .experience__canvas {
   height: 100%;
   width: 100%;
-}
-
-canvas {
-  width: 100vw;
-  height: 100vh;
-  position: fixed;
-  left: 0;
-  top: 0;
 }
 </style>

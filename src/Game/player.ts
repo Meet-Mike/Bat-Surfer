@@ -9,16 +9,17 @@ import {EventEmitter} from 'events';
 export interface CharacterOption {
     id: string;
     name: string;
+    style: string;
     color: number;
     modelUrl: string;
 }
 
 export const CHARACTERS: CharacterOption[] = [
-    { id: 'classic', name: 'Jake (Classic Blue)', color: 0x3498db, modelUrl: '/assets/glb/player1.glb' },
-    { id: 'crimson', name: 'Tricky (Crimson Red)', color: 0xe74c3c, modelUrl: '/assets/glb/player1.glb' },
-    { id: 'emerald', name: 'Fresh (Emerald Green)', color: 0x2ecc71, modelUrl: '/assets/glb/player1.glb' },
-    { id: 'gold', name: 'Yutani (Golden Yellow)', color: 0xf1c40f, modelUrl: '/assets/glb/player1.glb' },
-    { id: 'purple', name: 'Lucy (Neon Purple)', color: 0x9b59b6, modelUrl: '/assets/glb/player1.glb' },
+    { id: 'classic', name: 'Jake', style: 'Classic Blue Hoodie', color: 0x3498db, modelUrl: '/assets/glb/player1.glb' },
+    { id: 'crimson', name: 'Tricky', style: 'Crimson Streetwear', color: 0xe74c3c, modelUrl: '/assets/glb/player1.glb' },
+    { id: 'emerald', name: 'Fresh', style: 'Emerald Techno Suit', color: 0x2ecc71, modelUrl: '/assets/glb/player1.glb' },
+    { id: 'gold', name: 'Yutani', style: 'Golden Jetpack Kit', color: 0xf1c40f, modelUrl: '/assets/glb/player1.glb' },
+    { id: 'purple', name: 'Lucy', style: 'Neon Cyber Punk', color: 0x9b59b6, modelUrl: '/assets/glb/player1.glb' },
 ];
 
 export default class Player extends EventEmitter {
