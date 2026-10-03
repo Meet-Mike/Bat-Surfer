@@ -81,7 +81,7 @@ export class ControlPlayer extends EventEmitter {
 
         // Tuned run & jump parameters for high-fidelity Subway Surfers arcade feel
         this.runVelocity = 22;
-        this.jumpHight = 5.2; // Elevated jump impulse to clearly leap hurdles and kerbs
+        this.jumpHight = 9.5; // High jump impulse so character leaps cleanly over hurdles
         this.gameStart = false;
         this.far = 2.5;
 
@@ -168,7 +168,7 @@ export class ControlPlayer extends EventEmitter {
             setTimeout(() => {
                 this.isJumping = false;
             }, 100);
-            this.fallingSpeed = this.jumpHight * 0.085;
+            this.fallingSpeed = 0.55; // Strong immediate launch velocity
         }
     }
 
@@ -181,7 +181,6 @@ export class ControlPlayer extends EventEmitter {
                 this.roll = false;
             }, 620);
             this.key = 's';
-            // Fast cancel downward snap when sliding mid-air
             this.fallingSpeed = -0.6;
         }
     }
@@ -383,7 +382,8 @@ export class ControlPlayer extends EventEmitter {
                 this.raycasterFrontDown.far = far;
                 break;
             case Side.FRONT:
-                this.raycasterFront.ray.origin = new THREE.Vector3(x, y + 2, z - 1);
+                // Move front raycaster origin up dynamically with character height
+                this.raycasterFront.ray.origin = new THREE.Vector3(x, y + 1.2, z - 1);
                 this.raycasterFront.far = far;
                 break;
             case Side.LEFT:
@@ -415,7 +415,6 @@ export class ControlPlayer extends EventEmitter {
                 this.raycasterDown.ray.origin = originDown;
                 const c2 = this.raycasterDown.intersectObjects([intersectPlane, intersectObstacal])[0]?.object.name;
 
-                // Allow jumping height leeway so player ground check triggers only when actually low
                 if (position.y <= 0.1) {
                     this.downCollide = true;
                 } else {
@@ -443,8 +442,8 @@ export class ControlPlayer extends EventEmitter {
                 const c2 = r2Name && r2Name !== 'coin';
                 this.frontCollideInfo = (r1Name && r1Name !== 'coin' ? r1 : null) || (r2Name && r2Name !== 'coin' ? r2 : null);
 
-                // If jumping high enough over kerbStone or hurdles, bypass front collision
-                if (position.y > 1.8) {
+                // When jumping, if character elevation is above low hurdle height (1.2m), bypass collision
+                if (position.y > 1.2) {
                     this.frontCollide = false;
                 } else {
                     c1 || c2 ? (this.frontCollide = true) : (this.frontCollide = false);
@@ -459,7 +458,7 @@ export class ControlPlayer extends EventEmitter {
                     this.coin += 1;
                 }
                 const c1 = r1Name && r1Name !== 'coin';
-                if (position.y > 1.8) {
+                if (position.y > 1.2) {
                     this.frontCollide = false;
                 } else {
                     c1 ? (this.frontCollide = true) : (this.frontCollide = false);
@@ -627,9 +626,9 @@ export class ControlPlayer extends EventEmitter {
             this.game.emit('gameData', {score: this.score += 20, coin: this.coin, mistake: this.smallMistake});
         }
 
-        // Tuned gravity / jump movement loop
+        // Tuned gravity & jump loop
         if (this.isJumping || !this.downCollide || this.model.position.y > 0) {
-            const gravity = 10.5;
+            const gravity = 1.4;
             this.fallingSpeed -= gravity * delta;
             this.model.position.y += this.fallingSpeed;
 
